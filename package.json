@@ -1,0 +1,17 @@
+{
+  "name": "frete-fedex-plugin",
+  "version": "1.0.0",
+  "description": "FedEx Shipping Rate Provider for Shopify",
+  "main": "shippingRates.js",
+  "type": "module",
+  "scripts": {
+    "start": "node shippingRates.js",
+    "dev": "shopify app dev",
+    "deploy": "shopify app deploy"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0"
+  }
+}
