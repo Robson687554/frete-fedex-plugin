@@ -12,14 +12,14 @@ extend("purchase.shipping-rate-definitions.render-api", async (api) => {
 
     // Monta payload para seu endpoint Node.js
     const payload = {
-      fromPostalCode: "22640-100", // seu CEP padrão de saída (Brazil)
-      fromCountry: "BR",
+      fromPostalCode: senderPostalCode, // seu CEP padrão de saída (Brazil)
+      fromCountry: senderCountryCode, // seu país padrão de saída (BR)
       toPostalCode: destination.postalCode || "",
       toCountry: destination.countryCode || "",
       weightKg: (cart.weight?.value || 1500) / 1000, // converte de grama para kg
       hsCode: "847130", // padrão: laptop (você pode variar por produto)
-      description: "Laptop computer",
-      itemValue: cart.subtotal?.amount || 1200,
+      description: Title,
+      itemValue: cart.subtotal?.amount || Price,
     };
 
     console.log("Chamando endpoint FedEx com:", payload);
@@ -46,7 +46,7 @@ extend("purchase.shipping-rate-definitions.render-api", async (api) => {
           currency: rate.currency || "BRL",
         },
         description: rate.duties_note
-          ? `${rate.description}\n⚠️ ${rate.duties_note}`
+          ? `${rate.description}\n ${rate.duties_note}`
           : rate.description,
       })),
     };

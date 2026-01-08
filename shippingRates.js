@@ -26,22 +26,25 @@ app.post('/rates', async (req, res) => {
 
         const fedexBody = {
             accountNumber: { value: FEDEX_ACCOUNT_NUMBER },
+
             rateRequestControlParameters: {
                 returnTransitTimes: true
             },
+
             requestedShipment: {
                 shipper: {
                     address: {
-                        postalCode: fromPostalCode,
-                        countryCode: fromCountry
+                        postalCode: fromPostalCode,   // "33126"
+                        countryCode: fromCountry      // "US"
                     }
                 },
                 recipient: {
                     address: {
-                        postalCode: toPostalCode,
-                        countryCode: toCountry
+                        postalCode: toPostalCode,     // "22640-100"
+                        countryCode: toCountry        // "BR"
                     }
                 },
+
                 shipDateStamp: new Date().toISOString().slice(0, 10),
                 pickupType: "USE_SCHEDULED_PICKUP",
                 packagingType: "YOUR_PACKAGING",
@@ -49,33 +52,36 @@ app.post('/rates', async (req, res) => {
                 rateRequestType: ["ACCOUNT"],
                 edtRequestType: "ALL",
                 preferredCurrency: "USD",
+
                 customsClearanceDetail: {
                     dutiesPayment: {
                         paymentType: "SENDER"
                     },
                     commodities: [
                         {
-                            countryOfManufacture: countryOfManufacture || fromCountry,
-                            harmonizedCode: hsCode || "847130",
-                            description: description || "Laptop computer",
+                            countryOfManufacture: countryOfManufacture || fromCountry,       
+                            harmonizedCode: hsCode || "847130",                  // "847130"
+                            description: description || Title,            
                             quantity: 1,
                             quantityUnits: "PCS",
+                            itemValue: itemValue || Price,                     
                             weight: {
                                 units: "KG",
                                 value: weightKg || 1.5
                             },
                             unitPrice: {
-                                amount: itemValue || 1200,
+                                amount: itemValue,                     // 1200
                                 currency: "USD"
                             },
                             customsValue: {
-                                amount: itemValue || 1200,
+                                amount: itemValue,
                                 currency: "USD"
                             },
                             groupPackageCount: 1
                         }
                     ]
                 },
+
                 requestedPackageLineItems: [
                     {
                         weight: {
@@ -105,22 +111,28 @@ app.post('/rates', async (req, res) => {
             console.log('Sem rateReplyDetails');
             return res.json({ rates: [] });
         }
-
         const rated = detail.ratedShipmentDetails?.[0];
         if (!rated) {
             console.log('Sem ratedShipmentDetails');
             return res.json({ rates: [] });
         }
-
         const net = rated.totalNetCharge;
         if (!net && net !== 0) {
             console.log('Sem totalNetCharge');
             return res.json({ rates: [] });
         }
+        const currency =
+            rated.currency ||
+            rated.shipmentRateDetail?.currency ||
+            'USD';
+        const transitTime =
+            detail.commit?.committedTransitTime ||
+            detail.transitTime ||
+            null;
+        console.log('Transit time =>', transitTime);
 
-        const currency = rated.currency || rated.shipmentRateDetail?.currency || 'USD';
-        const transitTime = detail.commit?.committedTransitTime || detail.transitTime || null;
-        const totalDutiesAndTaxes = rated.totalDutiesAndTaxes ?? null;
+        const totalDutiesAndTaxes =
+            rated.totalDutiesAndTaxes ?? null;
 
         const customerMessages = detail.customerMessages || [];
         const hasEdtMissing = customerMessages.some(
@@ -130,21 +142,33 @@ app.post('/rates', async (req, res) => {
         const estimateDutiesExternally =
             (totalDutiesAndTaxes === 0 || totalDutiesAndTaxes === null) && hasEdtMissing;
 
+        const dutiesAndTaxes = totalDutiesAndTaxes !== null
+            ? { amount: totalDutiesAndTaxes, currency }
+            : null;
+
+        const taxesBreakdown = [];
+
         const cents = Math.round(net * 100);
 
-        // FORMATO CORRETO PARA SHOPIFY
         const response = {
             rates: [
                 {
-                    service_name: `FedEx Internacional - Prazo: ${transitTime || 'A confirmar'}`,
+                    service_name: `FedEx Internacional (${transitTime || 'sem estimativa'})`,
                     service_code: 'FEDEX_INTL',
                     total_price: String(cents),
-                    currency: currency
+                    currency,
+                    description: transitTime
+                        ? `Entrega estimada: ${transitTime}`
+                        : 'Cálculo direto na API FedEx',
+                    duties_and_taxes: dutiesAndTaxes,
+                    taxes_breakdown: taxesBreakdown,
+                    duties_external_estimate: estimateDutiesExternally,
+                    duties_note: estimateDutiesExternally
+                        ? 'Valor de impostos não retornado pela FedEx (EDT.DETAILS.MISSING). Estime externamente.'
+                        : null
                 }
             ]
         };
-
-
         console.log('RESPONSE /rates =>', response);
         res.json(response);
     } catch (e) {
