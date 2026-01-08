@@ -156,12 +156,19 @@ app.post('/rates', async (req, res) => {
                     service_name: `FedEx Internacional (${transitTime || 'sem estimativa'})`,
                     service_code: 'FEDEX_INTL',
                     total_price: String(cents),
-                    currency: currency,
-                    description: `Prazo: ${transitTime || 'A confirmar'} | ${estimateDutiesExternally ? 'Impostos: A calcular' : 'Sem impostos adicionais'}`
+                    currency,
+                    description: transitTime
+                        ? `Entrega estimada: ${transitTime}`
+                        : 'Cálculo direto na API FedEx',
+                    duties_and_taxes: dutiesAndTaxes,
+                    taxes_breakdown: taxesBreakdown,
+                    duties_external_estimate: estimateDutiesExternally,
+                    duties_note: estimateDutiesExternally
+                        ? 'Valor de impostos não retornado pela FedEx (EDT.DETAILS.MISSING). Estime externamente.'
+                        : null
                 }
             ]
         };
-
         console.log('RESPONSE /rates =>', response);
         res.json(response);
     } catch (e) {
