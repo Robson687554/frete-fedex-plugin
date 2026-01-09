@@ -1,4 +1,4 @@
-// server.js
+// shippingRate.js
 import express from 'express';
 import axios from 'axios';
 import { PORT, FEDEX_ACCOUNT_NUMBER } from './config.js';
@@ -7,41 +7,42 @@ import { getFedexToken } from './auth.js';
 const app = express();
 app.use(express.json());
 
-// Shopify envia este POST para o endpoint_url configurado no toml
+// ---------------------------
+// Endpoint para Shopify Rates
+// ---------------------------
 app.post('/rates', async (req, res) => {
   try {
-    // Shopify envia o carrinho e destino dentro de req.body.rate
-    const shopifyRate = req.body.rate;
-    if (!shopifyRate) {
+    console.log('REQ /rates =>', JSON.stringify(req.body, null, 2));
+
+    const { cart, destination } = req.body;
+    if (!cart || !destination) {
+      console.warn('Cart ou destination não informados');
       return res.json({ rates: [] });
     }
 
-    const toPostalCode = shopifyRate.destination?.postal_code || '';
-    const toCountry = shopifyRate.destination?.country || '';
-    const items = shopifyRate.items || [];
+    const toPostalCode = destination.postalCode || '';
+    const toCountry = destination.countryCode || '';
+    const items = cart.lines || [];
 
-    // Para simplificar, vamos somar peso e valor total do carrinho
+    // Calcula peso total (kg) e valor total (USD)
     let totalWeightKg = 0;
     let totalValue = 0;
     items.forEach(item => {
-      const weightKg = (item.grams || 0) / 1000; // g → kg
-      totalWeightKg += weightKg;
-      totalValue += item.price * item.quantity;
+      const weightKg = (item.grams || 0) / 1000;
+      const quantity = item.quantity || 1;
+      totalWeightKg += weightKg * quantity;
+      totalValue += (item.price || 0) * quantity;
     });
 
-    // Token FedEx
+    // Obtem token FedEx
     const token = await getFedexToken();
 
-    // Payload para FedEx API
+    // Payload FedEx
     const fedexBody = {
       accountNumber: { value: FEDEX_ACCOUNT_NUMBER },
       requestedShipment: {
-        shipper: {
-          address: { postalCode: '33126', countryCode: 'US' } // Exemplo
-        },
-        recipient: {
-          address: { postalCode: toPostalCode, countryCode: toCountry }
-        },
+        shipper: { address: { postalCode: '33126', countryCode: 'US' } },
+        recipient: { address: { postalCode: toPostalCode, countryCode: toCountry } },
         shipDateStamp: new Date().toISOString().slice(0, 10),
         pickupType: 'USE_SCHEDULED_PICKUP',
         packagingType: 'YOUR_PACKAGING',
@@ -56,8 +57,8 @@ app.post('/rates', async (req, res) => {
               quantity: 1,
               quantityUnits: 'PCS',
               weight: { units: 'KG', value: totalWeightKg || 1 },
-              unitPrice: { amount: totalValue, currency: 'USD' },
-              customsValue: { amount: totalValue, currency: 'USD' },
+              unitPrice: { amount: totalValue || 0, currency: 'USD' },
+              customsValue: { amount: totalValue || 0, currency: 'USD' },
               groupPackageCount: 1
             }
           ]
@@ -68,21 +69,26 @@ app.post('/rates', async (req, res) => {
       }
     };
 
+    console.log('Payload FedEx =>', JSON.stringify(fedexBody, null, 2));
+
+    // Chama FedEx API
     const fedexResponse = await axios.post(
       'https://apis.fedex.com/rate/v1/rates/quotes',
       fedexBody,
       { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
     );
 
+    console.log('FedEx RAW RESPONSE =>', JSON.stringify(fedexResponse.data, null, 2));
+
+    // Extrai informações da resposta
     const detail = fedexResponse.data.output?.rateReplyDetails?.[0];
     const rated = detail?.ratedShipmentDetails?.[0];
     const net = rated?.totalNetCharge || 0;
     const currency = rated?.currency || 'USD';
     const transitTime = detail?.commit?.committedTransitTime || 'N/A';
-
     const cents = Math.round(net * 100);
 
-    // Resposta formatada para Shopify checkout
+    // Monta resposta para Shopify
     const response = {
       rates: [
         {
@@ -98,7 +104,7 @@ app.post('/rates', async (req, res) => {
       ]
     };
 
-    console.log('RESPONSE /rates =>', response);
+    console.log('RESPONSE /rates =>', JSON.stringify(response, null, 2));
     res.json(response);
 
   } catch (e) {
@@ -107,4 +113,7 @@ app.post('/rates', async (req, res) => {
   }
 });
 
+// ---------------------------
+// Inicializa servidor
+// ---------------------------
 app.listen(PORT, () => console.log(`FedEx proxy rodando na porta ${PORT}`));

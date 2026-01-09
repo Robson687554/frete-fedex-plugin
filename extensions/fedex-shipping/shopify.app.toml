@@ -5,4 +5,4 @@ scopes = "write_shipping,read_shipping"
 
 [[extensions]]
 type = "shipping_rate_definition"
-handle = "fedex-shipping-rates"
+handle = "fedex-shipping"

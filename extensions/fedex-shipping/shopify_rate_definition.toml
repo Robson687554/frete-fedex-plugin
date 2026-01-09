@@ -1,5 +1,5 @@
 name = "FedEx Shipping Rates"
-handle = "fedex-shipping-rates"
+handle = "fedex-shipping"
 type = "shipping_rate_definition"
 api_version = "2024-10"
 
