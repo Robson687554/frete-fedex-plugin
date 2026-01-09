@@ -1,4 +1,4 @@
-(Invoke-WebRequest -Uri "http://localhost:3000/rates" -Method POST -ContentType "application/json" -Body '{
+(Invoke-WebRequest -Uri "https://frete-fedex-plugin.onrender.com/rates" -Method POST -ContentType "application/json" -Body '{
   "fromPostalCode": "33126",
   "fromCountry": "US",
   "toPostalCode": "22640-100",
