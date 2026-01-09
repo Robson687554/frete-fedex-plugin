@@ -1,10 +1,8 @@
-name = "FedEx Shipping Rates"
-handle = "fedex-shipping-rates"
-type = "shipping_rate_definition"
-api_version = "2024-10"
+name = "FedEx Shipping Rate Provider"
+client_id = "c46d4b4823103eb7f599c58749caaf89"
+type = "app"
+scopes = "write_shipping,read_shipping"
 
-[[settings]]
-key = "endpoint_url"
-type = "single_line_text_field"
-label = "API Endpoint URL"
-description = "URL do seu servidor Node.js (ex: https://frete-fedex-plugin.onrender.com/rates)"
+[[extensions]]
+type = "shipping_rate_definition"
+handle = "fedex-shipping-rates"
